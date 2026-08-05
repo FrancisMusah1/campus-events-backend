@@ -103,6 +103,43 @@ app.post("/login", async (req, res) => {
   });
 });
 
+app.post("/events/:id/rsvp", requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.userId;
+
+  const eventCheck = await pool.query("SELECT * FROM events WHERE id = $1", [id]);
+  const event = eventCheck.rows[0];
+
+  if (!event) {
+    return res.status(404).json({ message: "Event not found" });
+  }
+
+  if (event.attendees >= event.capacity) {
+    return res.status(400).json({ message: "Event is full" });
+  }
+
+  const existingTicket = await pool.query(
+    "SELECT * FROM tickets WHERE event_id = $1 AND user_id = $2",
+    [id, userId]
+  );
+
+  if (existingTicket.rows.length > 0) {
+    return res.status(400).json({ message: "You already have a ticket for this event" });
+  }
+
+  await pool.query(
+    "INSERT INTO tickets (event_id, user_id) VALUES ($1, $2)",
+    [id, userId]
+  );
+
+  const updatedEvent = await pool.query(
+    "UPDATE events SET attendees = attendees + 1 WHERE id = $1 RETURNING *",
+    [id]
+  );
+
+  res.json({ message: "RSVP successful!", event: updatedEvent.rows[0] });
+});
+
 app.listen(3000, () => {
   console.log("Server is running on http://localhost:3000");
 });
