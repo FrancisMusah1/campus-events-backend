@@ -35,26 +35,51 @@ app.get("/events", async (req, res) => {
 
 app.post("/events", requireAuth, async (req, res) => {
   const { name, attendees, capacity } = req.body;
+  const creatorId = req.user.userId;
 
   const result = await pool.query(
-    "INSERT INTO events (name, attendees, capacity) VALUES ($1, $2, $3) RETURNING *",
-    [name, attendees, capacity]
+    "INSERT INTO events (name, attendees, capacity, creator_id) VALUES ($1, $2, $3, $4) RETURNING *",
+    [name, attendees, capacity, creatorId]
   );
 
   res.json({ message: "Event created!", event: result.rows[0] });
 });
 
-app.delete("/events/:id", async (req, res) => {
+app.delete("/events/:id", requireAuth, async (req, res) => {
   const { id } = req.params;
+  const userId = req.user.userId;
+
+  const eventCheck = await pool.query("SELECT * FROM events WHERE id = $1", [id]);
+  const event = eventCheck.rows[0];
+
+  if (!event) {
+    return res.status(404).json({ message: "Event not found" });
+  }
+
+  if (event.creator_id !== userId) {
+    return res.status(403).json({ message: "You can only delete your own events" });
+  }
 
   await pool.query("DELETE FROM events WHERE id = $1", [id]);
 
   res.json({ message: "Event deleted!" });
 });
 
-app.put("/events/:id", async (req, res) => {
+app.put("/events/:id", requireAuth, async (req, res) => {
   const { id } = req.params;
   const { name, capacity } = req.body;
+  const userId = req.user.userId;
+
+  const eventCheck = await pool.query("SELECT * FROM events WHERE id = $1", [id]);
+  const event = eventCheck.rows[0];
+
+  if (!event) {
+    return res.status(404).json({ message: "Event not found" });
+  }
+
+  if (event.creator_id !== userId) {
+    return res.status(403).json({ message: "You can only edit your own events" });
+  }
 
   const result = await pool.query(
     "UPDATE events SET name = $1, capacity = $2 WHERE id = $3 RETURNING *",
