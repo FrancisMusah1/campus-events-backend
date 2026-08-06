@@ -66,14 +66,22 @@ app.put("/events/:id", async (req, res) => {
 app.post("/signup", async (req, res) => {
   const { name, email, password } = req.body;
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-  const result = await pool.query(
-    "INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email",
-    [name, email, hashedPassword]
-  );
+    const result = await pool.query(
+      "INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email",
+      [name, email, hashedPassword]
+    );
 
-  res.json({ message: "User created!", user: result.rows[0] });
+    res.json({ message: "User created!", user: result.rows[0] });
+  } catch (err) {
+    if (err.code === "23505") {
+      return res.status(400).json({ message: "Email already in use" });
+    }
+    console.error(err);
+    res.status(500).json({ message: "Something went wrong" });
+  }
 });
 
 app.post("/login", async (req, res) => {
