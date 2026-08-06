@@ -3,7 +3,8 @@ const cors = require("cors");
 const pool = require("./db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const JWT_SECRET = "campus_events_super_secret_key_123";
+require("dotenv").config();
+const JWT_SECRET = process.env.JWT_SECRET;
 
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
