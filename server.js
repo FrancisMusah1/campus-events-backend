@@ -174,6 +174,42 @@ app.post("/events/:id/rsvp", requireAuth, async (req, res) => {
   res.json({ message: "RSVP successful!", event: updatedEvent.rows[0] });
 });
 
+app.get("/my-tickets", requireAuth, async (req, res) => {
+  const userId = req.user.userId;
+
+  const result = await pool.query(
+    `SELECT tickets.id AS ticket_id, tickets.checked_in, events.name AS event_name, events.id AS event_id
+     FROM tickets
+     JOIN events ON tickets.event_id = events.id
+     WHERE tickets.user_id = $1`,
+    [userId]
+  );
+
+  res.json(result.rows);
+});
+
+app.post("/tickets/:id/checkin", requireAuth, async (req, res) => {
+  const { id } = req.params;
+
+  const ticketCheck = await pool.query("SELECT * FROM tickets WHERE id = $1", [id]);
+  const ticket = ticketCheck.rows[0];
+
+  if (!ticket) {
+    return res.status(404).json({ message: "Ticket not found" });
+  }
+
+  if (ticket.checked_in) {
+    return res.status(400).json({ message: "Ticket already checked in" });
+  }
+
+  const result = await pool.query(
+    "UPDATE tickets SET checked_in = true WHERE id = $1 RETURNING *",
+    [id]
+  );
+
+  res.json({ message: "Checked in successfully!", ticket: result.rows[0] });
+});
+
 app.listen(3000, () => {
   console.log("Server is running on http://localhost:3000");
 });
